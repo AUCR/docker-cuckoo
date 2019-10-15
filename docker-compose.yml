@@ -1,102 +1,126 @@
-version: "2"
+version: "3.4"
 
 services:
   cuckoo:
-    image: blacktop/cuckoo:2.0
+    image: docker_cuckoo
     command: daemon
+    cap_add:
+      - ALL
+    user: root
+    privileged: true
     ports:
-      - "2042:2042"
+      - 2042:2042
     volumes:
       - ./cuckoo-tmp/:/tmp/cuckoo-tmp/
-      - ./storage/:/cuckoo/storage/
-    networks:
-      - cuckoo
+      - /cuckoo/storage/:/cuckoo/storage/
+      - ./suricata/suricata-cuckoo.yaml:/etc/suricata/suricata-cuckoo.yaml
+      - ./suricata/suricata-cuckoo.yaml:/etc/suricata/suricata.yaml
+      - /rooter:/rooter/
+    devices:
+      - /sbin/iptables
+      - /sbin/ip
+      - /usr/sbin/service
+    network_mode: host
     env_file:
-      - ./2.0/config-file.env
+      - ./config-file.env
 
   web:
-    image: blacktop/cuckoo:2.0
+    image: docker_cuckoo
     ports:
-      - "80:31337"
+      - 31337:31337
+    command: web
     links:
       - mongo
-      - elasticsearch
       - postgres
-    command: web
     volumes:
       - ./cuckoo-tmp/:/tmp/cuckoo-tmp/
-      - ./storage/:/cuckoo/storage/
+      - /cuckoo/storage/:/cuckoo/storage/
     networks:
       - cuckoo
     env_file:
-      - ./2.0/config-file.env
+      - ./config-file.env
 
   api:
     depends_on:
       - postgres
-    image: blacktop/cuckoo:2.0
+    image: docker_cuckoo
     ports:
-      - "8000:1337"
+      - 1337:1337
+    command: api
     links:
       - postgres
-    command: api
     volumes:
       - ./cuckoo-tmp/:/tmp/cuckoo-tmp/
-      - ./storage/:/cuckoo/storage/
+      - /cuckoo/storage/:/cuckoo/storage/
     networks:
       - cuckoo
     env_file:
-      - ./2.0/config-file.env
+      - ./config-file.env
 
-  # nginx:
-  #   build: nginx/.
-  #   depends_on:
-  #     - mongo
-  #   ports:
-  #     - "80:80"
-  #   links:
-  #     - mongo
-  #   networks:
-  #     - cuckoo
-
-  mongo:
-    image: mongo
-    ports:
-      - 27017
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:6.5.0
+    container_name: elasticsearch
+    environment:
+      - cluster.name=docker-cuckoo
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+      - xpack.security.enabled=false
+      - xpack.monitoring.enabled=false
+      - xpack.ml.enabled=false
+      - xpack.watcher.enabled=false
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
     volumes:
-      - mongo-data:/data/db
+      - ./es-data:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
     networks:
       - cuckoo
 
-  elasticsearch:
-    image: blacktop/elasticsearch:5.6
+  kibana:
+    image: docker.elastic.co/kibana/kibana:6.5.0
+    container_name: kibana
     ports:
-      - 9200
+      - 5601:5601
+    networks:
+      - cuckoo
+    depends_on:
+      - elasticsearch
+    env_file:
+      - ./config-file.env
+
+  mongo:
+    image: mongo
+    restart: always
+    ports:
+      - 27017:27017
+    environment:
+      maxCollectionSize: 33554432
+      storage.mmapv1.nsSize: 32
     volumes:
-      - es-data:/usr/share/elasticsearch/data
+      - ./mongo-data:/data/db
     networks:
       - cuckoo
 
   postgres:
     image: postgres
     ports:
-      - 5432
+      - 5432:5432
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: cuckoo
+      POSTGRES_USER: cuckoo
+      POSTGRES_PASSWORD: password
       PGDATA: /var/lib/postgresql/data/pgdata
-      # POSTGRES_INITDB_ARGS: --data-checksums
     volumes:
-      - postgres-data:/var/lib/postgresql/data/pgdata
+      - ./postgres-data:/var/lib/postgresql/data/pgdata
     networks:
       - cuckoo
 
+
 networks:
+  host:
+    driver: default
   cuckoo:
     driver: bridge
 
-volumes:
-  cuckoo-data:
-  mongo-data:
-  es-data:
-  postgres-data:

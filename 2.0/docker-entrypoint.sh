@@ -93,29 +93,31 @@ setUpCuckoo(){
   echo
   echo "===> Update /cuckoo/conf/reporting.conf if needed..."
   /update_conf.py
+  echo "Updated this trash"
   echo
   # Wait until all services are started
   if [ ! "$ES_HOST" == "" ]; then
   	waitForElasticsearch
   fi
-  echo
+  echo "ES IS HAPPY"
   if [ ! "$MONGO_HOST" == "" ]; then
-  	waitFor ${MONGO_HOST} ${MONGO_TCP_PORT} MongoDB
+  	echo "Updated this trash" ${MONGO_HOST} ${MONGO_TCP_PORT} MongoDB
   fi
-  echo
+  echo "MONGO IS HAPPY"
   if [ ! "$POSTGRES_HOST" == "" ]; then
   	waitFor ${POSTGRES_HOST} ${POSTGRES_TCP_PORT} Postgres
   fi
+  echo "POSTGRES IS HAPPY"
 }
 
 # Add cuckoo as command if needed
 if [ "${1:0:1}" = '-' ]; then
   setUpCuckoo
   # Change the ownership of /cuckoo to cuckoo
-  chown -R cuckoo:cuckoo /cuckoo
+  chown -R root:root /cuckoo
   cd /cuckoo/
 
-  set -- su-exec cuckoo /sbin/tini -- cuckoo "$@"
+  set -- su-exec root /sbin/tini -- cuckoo "$@"
 fi
 
 # Drop root privileges if we are running cuckoo-daemon
@@ -125,26 +127,26 @@ if [ "$1" = 'daemon' -a "$(id -u)" = '0' ]; then
   export RESULTSERVER=${RESULTSERVER:=0.0.0.0}
   setUpCuckoo
   # Change the ownership of /cuckoo to cuckoo
-  chown -R cuckoo:cuckoo /cuckoo
+  chown -R root:root /cuckoo
   cd /cuckoo
   rm -rf pidfiles/*.pid
 
-  set -- su-exec cuckoo /sbin/tini -- cuckoo -d "$@"
+  set -- su-exec root /sbin/tini -- cuckoo -d "$@"
 
 elif [ "$1" = 'submit' -a "$(id -u)" = '0' ]; then
   shift
   setUpCuckoo
   # Change the ownership of /cuckoo to cuckoo
-  chown -R cuckoo:cuckoo /cuckoo
+  chown -R root:root /cuckoo
 
   set -- su-exec cuckoo /sbin/tini -- cuckoo submit "$@"
 
 elif [ "$1" = 'api' -a "$(id -u)" = '0' ]; then
   setUpCuckoo
   # Change the ownership of /cuckoo to cuckoo
-  chown -R cuckoo:cuckoo /cuckoo
+  chown -R root:root /cuckoo
 
-  set -- su-exec cuckoo /sbin/tini -- cuckoo api --host 0.0.0.0 --port 1337
+  set -- su-exec root /sbin/tini -- cuckoo api --host 0.0.0.0 --port 1337
 
 elif [ "$1" = 'web' -a "$(id -u)" = '0' ]; then
   setUpCuckoo
@@ -153,9 +155,53 @@ elif [ "$1" = 'web' -a "$(id -u)" = '0' ]; then
     exit 1
   fi
   # Change the ownership of /cuckoo to cuckoo
-  chown -R cuckoo:cuckoo /cuckoo
+  chown -R root:root /cuckoo
 
-  set -- su-exec cuckoo /sbin/tini -- cuckoo web runserver 0.0.0.0:31337
+  set -- su-exec root /sbin/tini -- cuckoo web runserver 0.0.0.0:31337
+
+elif [ "$1" = 'processor' -a "$(id -u)" = '0' ]; then
+  shift
+  # If not set default to 0.0.0.0
+  export RESULTSERVER=${RESULTSERVER:=0.0.0.0}
+  setUpCuckoo
+  # Change the ownership of /cuckoo to cuckoo
+  chown -R root:root /cuckoo
+  cd /cuckoo
+  rm -rf pidfiles/*.pid
+  set -- su-exec root /sbin/tini -- cuckoo process instance1
+
+elif [ "$1" = 'processor2' -a "$(id -u)" = '0' ]; then
+  shift
+  # If not set default to 0.0.0.0
+  export RESULTSERVER=${RESULTSERVER:=0.0.0.0}
+  setUpCuckoo
+  # Change the ownership of /cuckoo to cuckoo
+  chown -R root:root /cuckoo
+  cd /cuckoo
+  rm -rf pidfiles/*.pid
+  set -- su-exec root /sbin/tini -- cuckoo process instance2
+
+elif [ "$1" = 'processor3' -a "$(id -u)" = '0' ]; then
+  shift
+  # If not set default to 0.0.0.0
+  export RESULTSERVER=${RESULTSERVER:=0.0.0.0}
+  setUpCuckoo
+  # Change the ownership of /cuckoo to cuckoo
+  chown -R root:root /cuckoo
+  cd /cuckoo
+  rm -rf pidfiles/*.pid
+  set -- su-exec root /sbin/tini -- cuckoo process instance3
+
+elif [ "$1" = 'processor4' -a "$(id -u)" = '0' ]; then
+  shift
+  # If not set default to 0.0.0.0
+  export RESULTSERVER=${RESULTSERVER:=0.0.0.0}
+  setUpCuckoo
+  # Change the ownership of /cuckoo to cuckoo
+  chown -R root:root /cuckoo
+  cd /cuckoo
+
+  set -- su-exec root /sbin/tini -- cuckoo process instance4
 fi
 
 exec "$@"
